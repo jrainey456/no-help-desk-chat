@@ -3,7 +3,8 @@
 import { useState, FormEvent } from "react";
 import Image from "next/image";
 import styles from "./page.module.css";
-import rustyResponses from "@/data/rustyResponses.json";
+import rustyClickResponses from "@/data/rustyClickResponses.json";
+import rustyNonQuestionResponses from "@/data/rustyNonQuestionResponses.json";
 
 type Message = {
   id: number;
@@ -18,6 +19,25 @@ export default function Home() {
   const [clickCount, setClickCount] = useState(0);
   const [rustyLeft, setRustyLeft] = useState(false);
   const [rustyLeaving, setRustyLeaving] = useState(false);
+
+  const isQuestion = (text: string): boolean => {
+    const trimmed = text.trim();
+
+    // Check if ends with question mark
+    if (trimmed.endsWith("?")) return true;
+
+    // Check if starts with question words
+    const questionWords = [
+      "what", "why", "how", "when", "where", "who", "which",
+      "can", "could", "would", "should", "will", "won't",
+      "is", "are", "am", "was", "were",
+      "do", "does", "did", "don't", "doesn't", "didn't",
+      "have", "has", "had", "haven't", "hasn't", "hadn't"
+    ];
+
+    const firstWord = trimmed.toLowerCase().split(" ")[0];
+    return questionWords.includes(firstWord);
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -34,35 +54,58 @@ export default function Home() {
 
     // Only reply if Rusty hasn't left
     if (!rustyLeft) {
-      // Delay before showing typing indicator (Rusty "reading")
-      setTimeout(() => {
-        setIsTyping(true);
-      }, 800);
+      // Check if it's a question
+      if (!isQuestion(input)) {
+        // Not a question - respond with snarky message
+        setTimeout(() => {
+          setIsTyping(true);
+        }, 800);
 
-      // Fetch AI response from API
-      setTimeout(async () => {
-        try {
-          const response = await fetch("https://naas.isalman.dev/no");
-          const data = await response.json();
+        setTimeout(() => {
+          const randomIndex = Math.floor(
+            Math.random() * rustyNonQuestionResponses.responses.length
+          );
+          const snarkyResponse = rustyNonQuestionResponses.responses[randomIndex];
 
           const aiResponse: Message = {
             id: Date.now() + 1,
-            text: data.reason || "reply",
+            text: snarkyResponse.text,
             sender: "assistant",
           };
           setMessages((prev) => [...prev, aiResponse]);
-        } catch (error) {
-          console.error("Error fetching response:", error);
-          const aiResponse: Message = {
-            id: Date.now() + 1,
-            text: "Sorry, I couldn't respond right now.",
-            sender: "assistant",
-          };
-          setMessages((prev) => [...prev, aiResponse]);
-        } finally {
           setIsTyping(false);
-        }
-      }, 3800);
+        }, 3800);
+      } else {
+        // It's a question - fetch from API
+        setTimeout(() => {
+          setIsTyping(true);
+        }, 800);
+
+        // Fetch AI response from API
+        setTimeout(async () => {
+          try {
+            const response = await fetch("https://naas.isalman.dev/no");
+            const data = await response.json();
+
+            const aiResponse: Message = {
+              id: Date.now() + 1,
+              text: data.reason || "reply",
+              sender: "assistant",
+            };
+            setMessages((prev) => [...prev, aiResponse]);
+          } catch (error) {
+            console.error("Error fetching response:", error);
+            const aiResponse: Message = {
+              id: Date.now() + 1,
+              text: "Sorry, I couldn't respond right now.",
+              sender: "assistant",
+            };
+            setMessages((prev) => [...prev, aiResponse]);
+          } finally {
+            setIsTyping(false);
+          }
+        }, 3800);
+      }
     }
   };
 
@@ -98,8 +141,8 @@ export default function Home() {
       setMessages((prev) => [...prev, warningMessage]);
     } else {
       // Generate random number to select a response
-      const randomIndex = Math.floor(Math.random() * rustyResponses.responses.length);
-      const randomResponse = rustyResponses.responses[randomIndex];
+      const randomIndex = Math.floor(Math.random() * rustyClickResponses.responses.length);
+      const randomResponse = rustyClickResponses.responses[randomIndex];
 
       const rustyMessage: Message = {
         id: Date.now(),
